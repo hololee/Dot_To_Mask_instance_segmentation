@@ -68,12 +68,21 @@ class DataHandler(Handler):
 
     # print next batch.
     def nextBatch(self, batch_size):
-        image, size, box, box_class = self.train_images[self._i:self._i + batch_size], self.train_images_size[
-                                                                                       self._i: self._i + batch_size], self.train_images_box_list[
-                                                                                                                       self._i: self._i + batch_size], self.train_images_box_class[
-                                                                                                                                                       self._i: self._i + batch_size]
+
+        train_images = self.train_images[self._i:self._i + batch_size]
+        train_labels = np.zeros(shape=[np.shape(train_images)[0], np.shape(train_images)[1], 2])
+        # channel 0 :  width
+        train_labels[self.train_images_box_list[self._i: self._i + batch_size][4][0],
+                     self.train_images_box_list[self._i: self._i + batch_size][4][1], 0] = \
+        self.train_images_box_list[self._i: self._i + batch_size][2]
+        # channel 1 :  height
+        train_labels[self.train_images_box_list[self._i: self._i + batch_size][4][1],
+                     self.train_images_box_list[self._i: self._i + batch_size][4][1], 1] = \
+        self.train_images_box_list[self._i: self._i + batch_size][3]
+
         self._i = (self._i + batch_size) % len(self.train_images)
-        return image, size, box, box_class
+
+        return train_images, train_labels
 
     def plot_rect_on_image(self, image, rects, classes, line_width=3):
         """
@@ -137,8 +146,7 @@ class DataHandler(Handler):
         plt.imshow(plotting)
         plt.show()
 
-
-# test darw regions.
-handler = DataHandler("data")
-for i in range(100):
-    handler.plot_rect_on_image(handler.images[i], handler.box_list[i], handler.box_class[i], line_width=3)
+# # test darw regions.
+# handler = DataHandler("data")
+# for i in range(100):
+#     handler.plot_rect_on_image(handler.images[i], handler.box_list[i], handler.box_class[i], line_width=3)

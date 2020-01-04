@@ -3,17 +3,18 @@ import numpy as np
 import os
 import DataManager
 import matplotlib.pyplot as plt
+import tools.DataHandler as DataHandler
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 # load data.
 
-dm = DataManager.DataManager()
+dm = DataHandler.DataHandler("voc2006")
 
-input = tf.placeholder(np.float32, [None, 512, 512, 3])
-label_center = tf.placeholder(np.float32, [None, 512, 512])
-label_segmentation = tf.placeholder(np.float32, [None, 512, 512])
+input = tf.placeholder(np.float32, [None, None, None, 3])
+label_center = tf.placeholder(np.float32, [None, None, None])
+label_channel = tf.placeholder(np.float32, [None, None, None, 2])
 training = tf.placeholder(np.bool)
 
 
@@ -89,30 +90,31 @@ model_segmentation = conv_block(model_segmentation, 64, False, training)
 model_segmentation = deconv_block(model_segmentation, 32, training)
 model_segmentation = conv_block(model_segmentation, 32, False, training)
 model_segmentation = conv_block(model_segmentation, 32, False, training)
-out_segmentation = conv_block(model_segmentation, 1, False, training)
+# width channel, height channel
+out_channel = conv_block(model_segmentation, 2, False, training)
 
-loss_center = tf.sqrt(tf.reduce_mean(tf.square(label_center - tf.squeeze(out_center))))
-loss_segmentation = tf.sqrt(tf.reduce_mean(tf.square(label_segmentation - tf.squeeze(out_segmentation))))
+# loss_center = tf.sqrt(tf.reduce_mean(tf.square(label_center - tf.squeeze(out_center))))
+loss_segmentation = tf.sqrt(tf.reduce_mean(tf.square(label_channel - tf.squeeze(out_channel))))
 
-optimizer_center = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_center)
+# optimizer_center = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_center)
 optimizer_segmentation = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_segmentation)
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
     for i in range(18000):
-        batch_x, batch_center, batch_segmentation = dm.next_batch(dm.data_x, dm.data_center, dm.data_segmentation, 1)
+        batch_x, batch_center, batch_segmentation = dm.nextBatch(1)
 
         extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        _ = sess.run([optimizer_center, optimizer_segmentation, extra_update_ops],
-                     feed_dict={input: batch_x, label_center: batch_center, label_segmentation: batch_segmentation,
+        _ = sess.run([optimizer_segmentation, extra_update_ops],
+                     feed_dict={input: batch_x, label_center: batch_center, label_channel: batch_segmentation,
                                 training: True})
 
-        print("loss center: {}".format(sess.run(loss_center,
-                                                feed_dict={input: batch_x, label_center: batch_center,
-                                                           training: False})))
+        # print("loss center: {}".format(sess.run(loss_center,
+        #                                         feed_dict={input: batch_x, label_center: batch_center,
+        #                                                    training: False})))
         print("loss segmentation: {}".format(sess.run(loss_segmentation,
-                                                      feed_dict={input: batch_x, label_segmentation: batch_segmentation,
+                                                      feed_dict={input: batch_x, label_channel: batch_segmentation,
                                                                  training: False})))
 
         if (i % 200) == 0:
@@ -120,7 +122,7 @@ with tf.Session() as sess:
             plt.imshow(np.squeeze(sess.run(out_center, feed_dict={input: batch_x, training: False})))
 
             plt.subplot(1, 3, 2)
-            plt.imshow(np.squeeze(sess.run(out_segmentation, feed_dict={input: batch_x, training: False})))
+            plt.imshow(np.squeeze(sess.run(label_channel, feed_dict={input: batch_x, training: False})))
 
             plt.subplot(1, 3, 3)
             plt.imshow(np.squeeze(batch_x))

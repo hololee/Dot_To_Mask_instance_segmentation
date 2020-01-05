@@ -10,10 +10,10 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 # load data.
 
-dm = DataHandler.DataHandler("racoon")
+dm = DataHandler.DataHandler(round_size=15)
 
 input = tf.placeholder(np.float32, [None, None, None, 3])
-label_center = tf.placeholder(np.float32, [None, None, None])
+label_center = tf.placeholder(np.float32, [None, None, None, 1])
 label_channel = tf.placeholder(np.float32, [None, None, None, 2])
 training = tf.placeholder(np.bool)
 
@@ -33,17 +33,13 @@ def conv_block(input, traget_dim, pooling, training):
     return final
 
 
-def deconv_block(input, target_dim, training):
+def deconv_block(input, target_dim, restore_shape, training):
     filter = tf.Variable(
         tf.random_normal(shape=[3, 3, target_dim, input.get_shape().as_list()[3]], stddev=0.1))
     after_conv = tf.nn.conv2d_transpose(input,
-                                        output_shape=[tf.shape(input)[0], tf.shape(input)[1] * 2,
-                                                      tf.shape(input)[2] * 2, target_dim],
+                                        output_shape=[restore_shape[0], restore_shape[1],
+                                                      restore_shape[2], target_dim],
                                         filter=filter, strides=[1, 2, 2, 1], padding="SAME")
-
-    # after_conv = tf.nn.conv2d_transpose(input,
-    #                                     output_shape=[1, None, None, target_dim],
-    #                                     filter=filter, strides=[1, 2, 2, 1], padding="SAME")
 
     after_acti = tf.nn.relu(after_conv, "5d")
     after_batch = tf.layers.batch_normalization(after_acti, center=True, scale=True, training=training)
@@ -55,50 +51,50 @@ def deconv_block(input, target_dim, training):
 
 ##################################
 
-model = conv_block(input, 32, False, training)
-model = conv_block(model, 32, True, training)
-model = conv_block(model, 64, False, training)
-model = conv_block(model, 64, True, training)
-model = conv_block(model, 128, False, training)
-model = conv_block(model, 128, True, training)
-model = conv_block(model, 256, False, training)
-model = conv_block(model, 256, True, training)
+model_4 = conv_block(input, 32, False, training)
+model = conv_block(model_4, 32, True, training)
+model_3 = conv_block(model, 64, False, training)
+model = conv_block(model_3, 64, True, training)
+model_2 = conv_block(model, 128, False, training)
+model = conv_block(model_2, 128, True, training)
+model_1 = conv_block(model, 256, False, training)
+model = conv_block(model_1, 256, True, training)
 model = conv_block(model, 512, False, training)
 model = conv_block(model, 512, False, training)
 
 ########## center branch ###########
-model_center = deconv_block(model, 256, training)
+model_center = deconv_block(model, 256, tf.shape(model_1), training)
 model_center = conv_block(model_center, 256, False, training)
 model_center = conv_block(model_center, 256, False, training)
-model_center = deconv_block(model_center, 128, training)
+model_center = deconv_block(model_center, 128, tf.shape(model_2), training)
 model_center = conv_block(model_center, 128, False, training)
 model_center = conv_block(model_center, 128, False, training)
-model_center = deconv_block(model_center, 64, training)
+model_center = deconv_block(model_center, 64, tf.shape(model_3), training)
 model_center = conv_block(model_center, 64, False, training)
 model_center = conv_block(model_center, 64, False, training)
-model_center = deconv_block(model_center, 32, training)
+model_center = deconv_block(model_center, 32, tf.shape(model_4), training)
 model_center = conv_block(model_center, 32, False, training)
 model_center = conv_block(model_center, 32, False, training)
 out_center = conv_block(model_center, 1, False, training)
 
 ########## detection branch ###########
-model_segmentation = deconv_block(model, 256, training)
+model_segmentation = deconv_block(model, 256, tf.shape(model_1), training)
 model_segmentation = conv_block(model_segmentation, 256, False, training)
 model_segmentation = conv_block(model_segmentation, 256, False, training)
-model_segmentation = deconv_block(model_segmentation, 128, training)
+model_segmentation = deconv_block(model_segmentation, 128, tf.shape(model_2), training)
 model_segmentation = conv_block(model_segmentation, 128, False, training)
 model_segmentation = conv_block(model_segmentation, 128, False, training)
-model_segmentation = deconv_block(model_segmentation, 64, training)
+model_segmentation = deconv_block(model_segmentation, 64, tf.shape(model_3), training)
 model_segmentation = conv_block(model_segmentation, 64, False, training)
 model_segmentation = conv_block(model_segmentation, 64, False, training)
-model_segmentation = deconv_block(model_segmentation, 32, training)
+model_segmentation = deconv_block(model_segmentation, 32, tf.shape(model_4), training)
 model_segmentation = conv_block(model_segmentation, 32, False, training)
 model_segmentation = conv_block(model_segmentation, 32, False, training)
 # width channel, height channel
 out_channel = conv_block(model_segmentation, 2, False, training)
 
-loss_center = tf.sqrt(tf.reduce_mean(tf.square(label_center - tf.squeeze(out_center))))
-loss_detection = tf.sqrt(tf.reduce_mean(tf.square(label_channel - tf.squeeze(out_channel))))
+loss_center = tf.sqrt(tf.reduce_mean(tf.square((label_center) - (out_center))))
+loss_detection = tf.sqrt(tf.reduce_mean(tf.square((label_channel) - (out_channel))))
 
 optimizer_center = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_center)
 optimizer_detection = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_detection)
@@ -107,26 +103,57 @@ with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
     for i in range(18000):
-        batch_x, batch_center, batch_segmentation = dm.nextBatch(1)
+        batch_x, batch_center, batch_detection = dm.nextBatch(1)
+        batch_center = np.reshape(batch_center, newshape=[np.shape(batch_center)[0], np.shape(batch_center)[1],
+                                                          np.shape(batch_center)[2], 1])
+
+        if i == 0:
+            print("batch_center: ", np.shape(batch_center))
+            print("batch_detection: ", np.shape(batch_detection))
+
+            out_channel_data = sess.run(out_channel,
+                                        feed_dict={input: batch_x, label_center: batch_center,
+                                                   label_channel: batch_detection,
+                                                   training: True})
+            out_center_data = sess.run(out_center,
+                                       feed_dict={input: batch_x, label_center: batch_center,
+                                                  label_channel: batch_detection,
+                                                  training: True})
+
+            print("out_center_data: ", np.shape(out_center_data))
+            print("out_channel_data: ", np.shape(out_channel_data))
 
         extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        _ = sess.run([optimizer_center, extra_update_ops],
-                     feed_dict={input: batch_x, label_center: batch_center, label_channel: batch_segmentation,
+        _ = sess.run([optimizer_center, optimizer_detection, extra_update_ops],
+                     feed_dict={input: batch_x, label_center: batch_center, label_channel: batch_detection,
                                 training: True})
 
-        # print("loss center: {}".format(sess.run(loss_center,
-        #                                         feed_dict={input: batch_x, label_center: batch_center,
-        #                                                    training: False})))
-        print("loss segmentation: {}".format(sess.run(optimizer_center,
-                                                      feed_dict={input: batch_x, label_channel: batch_segmentation,
-                                                                 training: False})))
+        print("loss center: {} , loss segmentation: {}".format(sess.run(loss_center,
+                                                                        feed_dict={input: batch_x,
+                                                                                   label_center: batch_center,
+                                                                                   label_channel: batch_detection,
+                                                                                   training: False}),
+                                                               sess.run(optimizer_center,
+                                                                        feed_dict={input: batch_x,
+                                                                                   label_center: batch_center,
+                                                                                   label_channel: batch_detection,
+                                                                                   training: False})))
 
         if (i % 200) == 0:
+            out_channel_data = sess.run(out_channel,
+                                        feed_dict={input: batch_x, label_center: batch_center,
+                                                   label_channel: batch_detection,
+                                                   training: True})
+            out_center_data = sess.run(out_center,
+                                       feed_dict={input: batch_x, label_center: batch_center,
+                                                  label_channel: batch_detection,
+                                                  training: True})
+
             plt.subplot(1, 3, 1)
-            plt.imshow(np.squeeze(sess.run(out_center, feed_dict={input: batch_x, training: False})))
+            plt.imshow(np.squeeze(batch_center))
 
             plt.subplot(1, 3, 2)
-            plt.imshow(np.squeeze(sess.run(label_channel, feed_dict={input: batch_x, training: False})))
+            plt.imshow(np.squeeze(out_center_data))
 
             plt.subplot(1, 3, 3)
             plt.imshow(np.squeeze(batch_x))

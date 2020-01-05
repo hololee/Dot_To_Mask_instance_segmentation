@@ -8,12 +8,12 @@ from PIL import Image, ImageDraw, ImageFont
 
 class DataHandler(Handler):
 
-    def __init__(self, title):
+    def __init__(self, round_size):
 
         self._i = 0
 
         # read data.
-        super().__init__(title)
+        super().__init__("title")
         self.all_classes = ["raccoon"]
 
         self.color_map = ["#12b33d"]
@@ -41,17 +41,24 @@ class DataHandler(Handler):
             pil_image_centers = Image.fromarray(np.zeros(shape=[int(self.sizes[index][0]), int(self.sizes[index][1])]))
             draw_circle = ImageDraw.Draw(pil_image_centers)
 
-            x = int(coordinates[0])
-            y = int(coordinates[1])
+            x = int(coordinates[0]) # w
+            y = int(coordinates[1]) # h
 
             # add circle.
-            draw_circle.ellipse((x - 5, y - 5, x + 5, y + 5), fill='white')
+            draw_circle.ellipse((x - round_size, y - round_size, x + round_size, y + round_size), fill='white')
             self.images_label_point_center.append(np.array(pil_image_centers))
 
+            """           
+            original_size: { h, w}
+            box list: {start_h, start_w, height, width},
+            box class: {class_name}
+            _Center : {w, h}
+            """
+
             #  create objective output.
-            objective_image = np.zeros(shape=[int(self.sizes[index][1]), int(self.sizes[index][0]), 2])
-            objective_image[x, y, 0] = self.box_list[index][2]  # set width
-            objective_image[x, y, 1] = self.box_list[index][3]  # set height
+            objective_image = np.zeros(shape=[int(self.sizes[index][0]), int(self.sizes[index][1]), 2])
+            objective_image[y, x, 0] = self.box_list[index][2]  # set height
+            objective_image[y, x, 1] = self.box_list[index][3]  # set width
             self.images_label_object_detection.append(objective_image)
 
         self.data_size = len(self.names)
@@ -76,11 +83,12 @@ class DataHandler(Handler):
 
     # print next batch.
     def nextBatch(self, batch_size):
-        train_images = self.train_images[self.i: self.i + batch_size]
-        train_labels_point_seg = self.train_images_label_point_center[self.i: self.i + batch_size]
-        self.i = (self.i + batch_size) % len(self.train_images)
+        train_images = self.train_images[self._i: self._i + batch_size]
+        train_labels_point_seg = self.train_images_label_point_center[self._i: self._i + batch_size]
+        train_labels_object_Det = self.train_images_label_object_detection[self._i: self._i + batch_size]
+        self._i = (self._i + batch_size) % len(self.train_images)
 
-        return train_images, train_labels_point_seg  # , train_labels_object_Det
+        return train_images, train_labels_point_seg, train_labels_object_Det
 
     def plot_rect_on_image(self, image, rects, line_width=3):
         """

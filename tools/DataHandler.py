@@ -2,7 +2,6 @@ from tools.Handler import Handler
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
-import scipy.misc
 import skimage.draw as draw
 from PIL import Image, ImageDraw, ImageFont
 
@@ -38,7 +37,7 @@ class DataHandler(Handler):
                           "#a312b3"]
 
         # load data.
-        with open('/data1/LJH/faster_rcnn_implement/VOC2006/dat.pickle', 'rb') as f:
+        with open('/home/user01/data_ssd/LeeJongHyeok/Dot_To_Mask_instance_segmentation/VOC2006/dat.pickle', 'rb') as f:
             data = pickle.load(f)
         self.names = data["names"]
         self.sizes = data["sizes"]
@@ -133,7 +132,7 @@ class DataHandler(Handler):
                     print("out of bounds.")
 
             plotting = Image.fromarray(plotting, 'RGB')
-            font = ImageFont.truetype('/data1/LJH/faster_rcnn_implement/asset/NANUMSQUAREB.TTF', size=20)
+            font = ImageFont.truetype('./asset/NANUMSQUAREB.TTF', size=20)
             ImageDraw.Draw(plotting).rectangle((rect[1], rect[0], rect[1] + 70, rect[0] + 30),
                                                fill=self.color_map[int(np.argmax(_class))])
 

@@ -3,14 +3,14 @@ import numpy as np
 import os
 import DataManager
 import matplotlib.pyplot as plt
-import tools.DataHandler as DataHandler
+import tools.DataHandler_racoon as DataHandler
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 # load data.
 
-dm = DataHandler.DataHandler("voc2006")
+dm = DataHandler.DataHandler("racoon")
 
 input = tf.placeholder(np.float32, [None, None, None, 3])
 label_center = tf.placeholder(np.float32, [None, None, None])
@@ -37,9 +37,13 @@ def deconv_block(input, target_dim, training):
     filter = tf.Variable(
         tf.random_normal(shape=[3, 3, target_dim, input.get_shape().as_list()[3]], stddev=0.1))
     after_conv = tf.nn.conv2d_transpose(input,
-                                        output_shape=[1, input.get_shape().as_list()[1] * 2,
-                                                      input.get_shape().as_list()[2] * 2, target_dim],
+                                        output_shape=[tf.shape(input)[0], tf.shape(input)[1] * 2,
+                                                      tf.shape(input)[2] * 2, target_dim],
                                         filter=filter, strides=[1, 2, 2, 1], padding="SAME")
+
+    # after_conv = tf.nn.conv2d_transpose(input,
+    #                                     output_shape=[1, None, None, target_dim],
+    #                                     filter=filter, strides=[1, 2, 2, 1], padding="SAME")
 
     after_acti = tf.nn.relu(after_conv, "5d")
     after_batch = tf.layers.batch_normalization(after_acti, center=True, scale=True, training=training)
@@ -62,7 +66,7 @@ model = conv_block(model, 256, True, training)
 model = conv_block(model, 512, False, training)
 model = conv_block(model, 512, False, training)
 
-##########center branch ###########
+########## center branch ###########
 model_center = deconv_block(model, 256, training)
 model_center = conv_block(model_center, 256, False, training)
 model_center = conv_block(model_center, 256, False, training)
@@ -93,11 +97,11 @@ model_segmentation = conv_block(model_segmentation, 32, False, training)
 # width channel, height channel
 out_channel = conv_block(model_segmentation, 2, False, training)
 
-# loss_center = tf.sqrt(tf.reduce_mean(tf.square(label_center - tf.squeeze(out_center))))
-loss_segmentation = tf.sqrt(tf.reduce_mean(tf.square(label_channel - tf.squeeze(out_channel))))
+loss_center = tf.sqrt(tf.reduce_mean(tf.square(label_center - tf.squeeze(out_center))))
+loss_detection = tf.sqrt(tf.reduce_mean(tf.square(label_channel - tf.squeeze(out_channel))))
 
-# optimizer_center = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_center)
-optimizer_segmentation = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_segmentation)
+optimizer_center = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_center)
+optimizer_detection = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_detection)
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -106,14 +110,14 @@ with tf.Session() as sess:
         batch_x, batch_center, batch_segmentation = dm.nextBatch(1)
 
         extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        _ = sess.run([optimizer_segmentation, extra_update_ops],
+        _ = sess.run([optimizer_center, extra_update_ops],
                      feed_dict={input: batch_x, label_center: batch_center, label_channel: batch_segmentation,
                                 training: True})
 
         # print("loss center: {}".format(sess.run(loss_center,
         #                                         feed_dict={input: batch_x, label_center: batch_center,
         #                                                    training: False})))
-        print("loss segmentation: {}".format(sess.run(loss_segmentation,
+        print("loss segmentation: {}".format(sess.run(optimizer_center,
                                                       feed_dict={input: batch_x, label_channel: batch_segmentation,
                                                                  training: False})))
 

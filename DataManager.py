@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.misc import imread
+from imageio import imread
 from os import listdir
 from PIL import Image, ImageDraw
 
@@ -9,15 +9,11 @@ class DataManager:
     def __init__(self):
         self.batch_flag = 0
 
-        self.data_x = []
-        self.data_center = []
-        self.data_segmentation = []
+        self.data_x = []  # images
+        self.data_center = []  # center segmentation.
+        self.data_y = []  # objective of this project (2  channels data : h, w, ,2), 2 means box height and width at each center point.
 
-        # notice : load data.
-        path = "/data1/LJH/Dot_To_Mask_instance_segmentation/A1/"
-
-        dir_list = listdir(path)
-        dir_list = sorted(dir_list)
+        # read dat.pickle.
 
         for file in dir_list:
 
@@ -37,9 +33,6 @@ class DataManager:
                     # add circle.
                     draw_circle.ellipse((y - 5, x - 5, y + 5, x + 5), fill='white')
                 self.data_center.append(np.array(pil_image_centers))
-
-            if "_fg" in file:
-                self.data_segmentation.append(imread(file_path, mode='L'))
 
             if "_rgb" in file:
                 print(file)

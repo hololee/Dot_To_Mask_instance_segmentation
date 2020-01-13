@@ -4,11 +4,12 @@ import numpy as np
 import pickle
 import skimage.draw as draw
 from PIL import Image, ImageDraw, ImageFont
+import math
 
 
 class DataHandler(Handler):
 
-    def __init__(self, round_size):
+    def __init__(self, oval_ratio):
 
         self._i = 0
 
@@ -26,27 +27,58 @@ class DataHandler(Handler):
         self.box_list = data["box_list"]
         self.box_class = data["box_class"]
         self.images = []
-        self.images_label_point_center = []
-        self.images_label_object_detection = []
+        self.images_label_point_center_1_by_1 = []
+        self.images_label_point_center_2_by_2 = []
+        self.images_label_point_center_4_by_4 = []
+        self.images_label_point_center_8_by_8 = []
 
         # load images
         for name in self.names:
             image = Image.open(name[0])
-            self.images.append(np.array(image))
+            self.images.append(np.array(image) / 255)
 
         # create center points images.
         for index, box_data in enumerate(self.box_list):
+            img_height = int(self.sizes[index][0])
+            img_width = int(self.sizes[index][1])
+
             coordinates = box_data[4]  # (w, h)
 
-            pil_image_centers = Image.fromarray(np.zeros(shape=[int(self.sizes[index][0]), int(self.sizes[index][1])]))
-            draw_circle = ImageDraw.Draw(pil_image_centers)
+            center_points_image = np.zeros(shape=[img_height, img_width])
 
-            x = int(coordinates[0]) # w
-            y = int(coordinates[1]) # h
+            x = int(coordinates[0])  # w
+            y = int(coordinates[1])  # h
 
-            # add circle.
-            draw_circle.ellipse((x - round_size, y - round_size, x + round_size, y + round_size), fill='white')
-            self.images_label_point_center.append(np.array(pil_image_centers))
+            center_points_image[y, x] = 1
+
+            self.images_label_point_center_1_by_1.append(center_points_image)
+
+            # for /2
+            center_points_image = np.zeros(shape=[math.ceil(img_height / 2), math.ceil(img_width / 2)])
+
+            x = (x - 1) // 2
+            y = (y - 1) // 2
+            center_points_image[y, x] = 1
+
+            self.images_label_point_center_2_by_2.append(center_points_image)
+
+            # for /4
+            center_points_image = np.zeros(shape=[math.ceil(img_height / 4), math.ceil(img_width / 4)])
+
+            x = (x - 1) // 4
+            y = (y - 1) // 4
+            center_points_image[y, x] = 1
+
+            self.images_label_point_center_4_by_4.append(center_points_image)
+
+            # for /8
+            center_points_image = np.zeros(shape=[math.ceil(img_height / 8), math.ceil(img_width / 8)])
+
+            x = (x - 1) // 8
+            y = (y - 1) // 8
+            center_points_image[y, x] = 1
+
+            self.images_label_point_center_8_by_8.append(center_points_image)
 
             """           
             original_size: { h, w}
@@ -55,28 +87,26 @@ class DataHandler(Handler):
             _Center : {w, h}
             """
 
-            #  create objective output.
-            objective_image = np.zeros(shape=[int(self.sizes[index][0]), int(self.sizes[index][1]), 2])
-            objective_image[y, x, 0] = self.box_list[index][2]  # set height
-            objective_image[y, x, 1] = self.box_list[index][3]  # set width
-            self.images_label_object_detection.append(objective_image)
-
         self.data_size = len(self.names)
-        print("Total data length : {}".format(self.data_size))  # 200 train 160, test:40
+        print("Total data length : {}".format(self.data_size))  # 185 train 155, test:30
 
-        self.train_images = self.images[:159]
-        self.train_images_size = self.sizes[:159]
-        self.train_images_box_list = self.box_list[:159]
-        self.train_images_box_class = self.box_class[:159]
-        self.train_images_label_point_center = self.images_label_point_center[:159]
-        self.train_images_label_object_detection = self.images_label_object_detection[:159]
+        self.train_images = self.images[:154]
+        self.train_images_size = self.sizes[:154]
+        self.train_images_box_list = self.box_list[:154]
+        self.train_images_box_class = self.box_class[:154]
+        self.train_images_label_point_center_1_by_1 = self.images_label_point_center_1_by_1[:154]
+        self.train_images_label_point_center_2_by_2 = self.images_label_point_center_2_by_2[:154]
+        self.train_images_label_point_center_4_by_4 = self.images_label_point_center_4_by_4[:154]
+        self.train_images_label_point_center_8_by_8 = self.images_label_point_center_8_by_8[:154]
 
-        self.test_images = self.images[160:]
-        self.test_images_size = self.sizes[160:]
-        self.test_images_box_list = self.box_list[160:]
-        self.test_images_box_class = self.box_class[160:]
-        self.test_images_label_point_center = self.images_label_point_center[160:]
-        self.test_images_label_object_detection = self.images_label_object_detection[160:]
+        self.test_images = self.images[155:]
+        self.test_images_size = self.sizes[155:]
+        self.test_images_box_list = self.box_list[155:]
+        self.test_images_box_class = self.box_class[155:]
+        self.test_images_label_point_center_1_by_1 = self.images_label_point_center_1_by_1[155:]
+        self.test_images_label_point_center_2_by_2 = self.images_label_point_center_2_by_2[155:]
+        self.test_images_label_point_center_4_by_4 = self.images_label_point_center_4_by_4[155:]
+        self.test_images_label_point_center_8_by_8 = self.images_label_point_center_8_by_8[155:]
 
     def run(self):
         pass
@@ -84,11 +114,14 @@ class DataHandler(Handler):
     # print next batch.
     def nextBatch(self, batch_size):
         train_images = self.train_images[self._i: self._i + batch_size]
-        train_labels_point_seg = self.train_images_label_point_center[self._i: self._i + batch_size]
-        train_labels_object_Det = self.train_images_label_object_detection[self._i: self._i + batch_size]
+        train_images1by1 = self.train_images_label_point_center_1_by_1[self._i: self._i + batch_size]
+        train_images2by2 = self.train_images_label_point_center_2_by_2[self._i: self._i + batch_size]
+        train_images4by4 = self.train_images_label_point_center_4_by_4[self._i: self._i + batch_size]
+        train_images8by8 = self.train_images_label_point_center_8_by_8[self._i: self._i + batch_size]
+
         self._i = (self._i + batch_size) % len(self.train_images)
 
-        return train_images, train_labels_point_seg, train_labels_object_Det
+        return train_images, train_images1by1, train_images2by2, train_images4by4, train_images8by8
 
     def plot_rect_on_image(self, image, rects, line_width=3):
         """
@@ -150,8 +183,7 @@ class DataHandler(Handler):
         plt.imshow(plotting)
         plt.show()
 
-#
 # # test darw regions.
-# handler = DataHandler("data")
+# handler = DataHandler(3)
 # for i in range(100):
 #     handler.plot_rect_on_image(handler.images[i], handler.box_list[i], line_width=3)

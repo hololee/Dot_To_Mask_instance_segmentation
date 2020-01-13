@@ -1,16 +1,19 @@
+"""
+직접적으로 중심점 구하기, 전체 영역중 중심부만 w, h label
+"""
+
 import tensorflow as tf
 import numpy as np
 import os
-import DataManager
 import matplotlib.pyplot as plt
-import tools.DataHandler_racoon as DataHandler
+import tools.DataHandler_racoon_test1 as DataHandler
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 # load data.
 
-dm = DataHandler.DataHandler(round_size=15)
+dm = DataHandler.DataHandler(oval_ratio=0.06)
 
 input = tf.placeholder(np.float32, [None, None, None, 3])
 label_center = tf.placeholder(np.float32, [None, None, None, 1])
@@ -64,40 +67,40 @@ model = conv_block(model, 512, False, training)
 
 ########## center branch ###########
 model_center = deconv_block(model, 256, tf.shape(model_1), training)
-model_center = conv_block(model_center, 256, False, training)
+model_center = conv_block(model_center, 256, False, training) + model_1
 model_center = conv_block(model_center, 256, False, training)
 model_center = deconv_block(model_center, 128, tf.shape(model_2), training)
-model_center = conv_block(model_center, 128, False, training)
+model_center = conv_block(model_center, 128, False, training) + model_2
 model_center = conv_block(model_center, 128, False, training)
 model_center = deconv_block(model_center, 64, tf.shape(model_3), training)
-model_center = conv_block(model_center, 64, False, training)
+model_center = conv_block(model_center, 64, False, training) + model_3
 model_center = conv_block(model_center, 64, False, training)
 model_center = deconv_block(model_center, 32, tf.shape(model_4), training)
-model_center = conv_block(model_center, 32, False, training)
+model_center = conv_block(model_center, 32, False, training) + model_4
 model_center = conv_block(model_center, 32, False, training)
 out_center = conv_block(model_center, 1, False, training)
 
 ########## detection branch ###########
-model_segmentation = deconv_block(model, 256, tf.shape(model_1), training)
-model_segmentation = conv_block(model_segmentation, 256, False, training)
-model_segmentation = conv_block(model_segmentation, 256, False, training)
-model_segmentation = deconv_block(model_segmentation, 128, tf.shape(model_2), training)
-model_segmentation = conv_block(model_segmentation, 128, False, training)
-model_segmentation = conv_block(model_segmentation, 128, False, training)
-model_segmentation = deconv_block(model_segmentation, 64, tf.shape(model_3), training)
-model_segmentation = conv_block(model_segmentation, 64, False, training)
-model_segmentation = conv_block(model_segmentation, 64, False, training)
-model_segmentation = deconv_block(model_segmentation, 32, tf.shape(model_4), training)
-model_segmentation = conv_block(model_segmentation, 32, False, training)
-model_segmentation = conv_block(model_segmentation, 32, False, training)
-# width channel, height channel
-out_channel = conv_block(model_segmentation, 2, False, training)
+# model_segmentation = deconv_block(model, 256, tf.shape(model_1), training)
+# model_segmentation = conv_block(model_segmentation, 256, False, training)
+# model_segmentation = conv_block(model_segmentation, 256, False, training)
+# model_segmentation = deconv_block(model_segmentation, 128, tf.shape(model_2), training)
+# model_segmentation = conv_block(model_segmentation, 128, False, training)
+# model_segmentation = conv_block(model_segmentation, 128, False, training)
+# model_segmentation = deconv_block(model_segmentation, 64, tf.shape(model_3), training)
+# model_segmentation = conv_block(model_segmentation, 64, False, training)
+# model_segmentation = conv_block(model_segmentation, 64, False, training)
+# model_segmentation = deconv_block(model_segmentation, 32, tf.shape(model_4), training)
+# model_segmentation = conv_block(model_segmentation, 32, False, training)
+# model_segmentation = conv_block(model_segmentation, 32, False, training)
+# # width channel, height channel
+# out_channel = conv_block(model_segmentation, 2, False, training)
 
 loss_center = tf.sqrt(tf.reduce_mean(tf.square((label_center) - (out_center))))
-loss_detection = tf.sqrt(tf.reduce_mean(tf.square((label_channel) - (out_channel))))
+# loss_detection = tf.sqrt(tf.reduce_mean(tf.square((label_channel) - (out_channel))))
 
 optimizer_center = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_center)
-optimizer_detection = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_detection)
+# optimizer_detection = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_detection)
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -109,45 +112,39 @@ with tf.Session() as sess:
 
         if i == 0:
             print("batch_center: ", np.shape(batch_center))
-            print("batch_detection: ", np.shape(batch_detection))
+            # print("batch_detection: ", np.shape(batch_detection))
 
-            out_channel_data = sess.run(out_channel,
-                                        feed_dict={input: batch_x, label_center: batch_center,
-                                                   label_channel: batch_detection,
-                                                   training: True})
+            # out_channel_data = sess.run(out_channel,
+            #                             feed_dict={input: batch_x, label_center: batch_center,
+            #                                        label_channel: batch_detection,
+            #                                        training: False})
             out_center_data = sess.run(out_center,
                                        feed_dict={input: batch_x, label_center: batch_center,
                                                   label_channel: batch_detection,
-                                                  training: True})
+                                                  training: False})
 
             print("out_center_data: ", np.shape(out_center_data))
-            print("out_channel_data: ", np.shape(out_channel_data))
+            # print("out_channel_data: ", np.shape(out_channel_data))
 
         extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        _ = sess.run([optimizer_center, optimizer_detection, extra_update_ops],
+        _ = sess.run([optimizer_center, extra_update_ops],
                      feed_dict={input: batch_x, label_center: batch_center, label_channel: batch_detection,
                                 training: True})
 
-        print("loss center: {} , loss segmentation: {}".format(sess.run(loss_center,
-                                                                        feed_dict={input: batch_x,
-                                                                                   label_center: batch_center,
-                                                                                   label_channel: batch_detection,
-                                                                                   training: False}),
-                                                               sess.run(optimizer_center,
-                                                                        feed_dict={input: batch_x,
-                                                                                   label_center: batch_center,
-                                                                                   label_channel: batch_detection,
-                                                                                   training: False})))
+        print("loss center: {}".format(sess.run(loss_center, feed_dict={input: batch_x,
+                                                                        label_center: batch_center,
+                                                                        label_channel: batch_detection,
+                                                                        training: False})))
 
-        if (i % 200) == 0:
-            out_channel_data = sess.run(out_channel,
-                                        feed_dict={input: batch_x, label_center: batch_center,
-                                                   label_channel: batch_detection,
-                                                   training: True})
+        if (i % 50) == 0:
+            # out_channel_data = sess.run(out_channel,
+            #                             feed_dict={input: batch_x, label_center: batch_center,
+            #                                        label_channel: batch_detection,
+            #                                        training: False})
             out_center_data = sess.run(out_center,
                                        feed_dict={input: batch_x, label_center: batch_center,
                                                   label_channel: batch_detection,
-                                                  training: True})
+                                                  training: False})
 
             plt.subplot(1, 3, 1)
             plt.imshow(np.squeeze(batch_center))

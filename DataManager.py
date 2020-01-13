@@ -1,7 +1,9 @@
 import numpy as np
-from scipy.misc import imread
+from scipy.misc import imread, imsave
 from os import listdir
 from PIL import Image, ImageDraw
+from center_to_segment import get_centers, get_areas_from_center
+import os
 
 
 class DataManager:
@@ -11,6 +13,9 @@ class DataManager:
 
         self.data_x = []
         self.data_center = []
+        self.data_one_center_img = []
+        self.data_one_center_list = []
+        self.data_one_center_label = []
         self.data_segmentation = []
 
         # notice : load data.
@@ -20,10 +25,10 @@ class DataManager:
         dir_list = sorted(dir_list)
 
         for file in dir_list:
-
             file_path = path + file
 
             if "_centers" in file:
+                origin_path = file_path
                 print(file)
                 img_centers = imread(file_path, mode="L")
                 coordinates = np.where(img_centers)
@@ -37,6 +42,14 @@ class DataManager:
                     # add circle.
                     draw_circle.ellipse((y - 5, x - 5, y + 5, x + 5), fill='white')
                 self.data_center.append(np.array(pil_image_centers))
+                imsave(file_path.replace("_centers.png", "") + "_hd.png", np.array(pil_image_centers))
+                imgs, indices = get_centers(file_path.replace("_centers.png", "") + "_hd.png")
+                self.data_one_center_img.append(imgs)
+                self.data_one_center_list.append(indices)
+
+                # save label images.
+                each_images = get_areas_from_center(origin_path.replace("_centers.png", "") + "_label.png", indices)
+                self.data_one_center_label.append(each_images)
 
             if "_fg" in file:
                 self.data_segmentation.append(imread(file_path, mode='L'))
@@ -53,3 +66,20 @@ class DataManager:
                                                                                                                                                  self.batch_flag:self.batch_flag + batch_size]
         self.batch_flag = (self.batch_flag + batch_size) % len(total_images)
         return sub_batch_x, sub_batch_y1, sub_batch_y2
+
+    def next_batch_with_each_center(self, batch_size):
+
+        origin_image, sub_batch_center, segmentation_result, sub_batch_center_label = self.data_x[
+                                                                                      self.batch_flag: self.batch_flag + batch_size], \
+                                                                                      self.data_one_center_img[
+                                                                                      self.batch_flag:self.batch_flag + batch_size], \
+                                                                                      self.data_segmentation[
+                                                                                      self.batch_flag:self.batch_flag + batch_size], \
+                                                                                      self.data_one_center_label[
+                                                                                      self.batch_flag:self.batch_flag + batch_size]
+        self.batch_flag = (self.batch_flag + batch_size) % len(self.data_x)
+        return origin_image, sub_batch_center, sub_batch_center_label, segmentation_result
+
+
+# db = DataManager()
+# print("")

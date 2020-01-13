@@ -5,7 +5,7 @@ import DataManager
 import matplotlib.pyplot as plt
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 # load data.
 
@@ -162,3 +162,7 @@ with tf.Session() as sess:
                 sess.run(tf.reshape(out_focal, shape=[512, 512]), feed_dict={input: batch_x, training: False})))
 
             plt.show()
+
+            if i == 12000:
+                print("stop")
+

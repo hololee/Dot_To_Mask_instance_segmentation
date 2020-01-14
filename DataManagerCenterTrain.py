@@ -2,8 +2,7 @@ import numpy as np
 from scipy.misc import imread, imsave
 from os import listdir
 from PIL import Image, ImageDraw
-from center_to_segment import get_centers, get_areas_from_center
-import os
+from tools.CenterTools import get_centers, get_areas_from_center
 
 
 class DataManager:
@@ -60,10 +59,9 @@ class DataManager:
 
     def next_batch(self, total_images, total_labels1, total_labels2, batch_size):
 
-        sub_batch_x, sub_batch_y1, sub_batch_y2 = total_images[
-                                                  self.batch_flag: self.batch_flag + batch_size], total_labels1[
-                                                                                                  self.batch_flag:self.batch_flag + batch_size], total_labels2[
-                                                                                                                                                 self.batch_flag:self.batch_flag + batch_size]
+        sub_batch_x, sub_batch_y1, sub_batch_y2 = total_images[self.batch_flag: self.batch_flag + batch_size], \
+                                                  total_labels1[self.batch_flag:self.batch_flag + batch_size], \
+                                                  total_labels2[self.batch_flag:self.batch_flag + batch_size]
         self.batch_flag = (self.batch_flag + batch_size) % len(total_images)
         return sub_batch_x, sub_batch_y1, sub_batch_y2
 
@@ -79,7 +77,6 @@ class DataManager:
                                                                                       self.batch_flag:self.batch_flag + batch_size]
         self.batch_flag = (self.batch_flag + batch_size) % len(self.data_x)
         return origin_image, sub_batch_center, sub_batch_center_label, segmentation_result
-
 
 # db = DataManager()
 # print("")

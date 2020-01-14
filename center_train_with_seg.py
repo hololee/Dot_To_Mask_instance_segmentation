@@ -1,15 +1,15 @@
 import tensorflow as tf
 import numpy as np
 import os
-import DataManager
+import DataManagerCenterTrain
 import matplotlib.pyplot as plt
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 # load data.
 
-dm = DataManager.DataManager()
+dm = DataManagerCenterTrain.DataManager()
 
 input = tf.placeholder(np.float32, [None, 512, 512, 3])
 label_center = tf.placeholder(np.float32, [None, 512, 512])
@@ -61,7 +61,7 @@ model = conv_block(model, 256, True, training)
 model = conv_block(model, 512, False, training)
 model = conv_block(model, 512, False, training)
 
-##########center seg branch ###########
+##########center branch ###########
 model_center = deconv_block(model, 256, training)
 model_center = conv_block(model_center, 256, False, training)
 model_center = conv_block(model_center, 256, False, training)
@@ -77,25 +77,25 @@ model_center = conv_block(model_center, 32, False, training)
 out_center = conv_block(model_center, 1, False, training)
 
 ########## segmentation branch ###########
-# model_segmentation = deconv_block(model, 256, training)
-# model_segmentation = conv_block(model_segmentation, 256, False, training)
-# model_segmentation = conv_block(model_segmentation, 256, False, training)
-# model_segmentation = deconv_block(model_segmentation, 128, training)
-# model_segmentation = conv_block(model_segmentation, 128, False, training)
-# model_segmentation = conv_block(model_segmentation, 128, False, training)
-# model_segmentation = deconv_block(model_segmentation, 64, training)
-# model_segmentation = conv_block(model_segmentation, 64, False, training)
-# model_segmentation = conv_block(model_segmentation, 64, False, training)
-# model_segmentation = deconv_block(model_segmentation, 32, training)
-# model_segmentation = conv_block(model_segmentation, 32, False, training)
-# model_segmentation = conv_block(model_segmentation, 32, False, training)
-# out_segmentation = conv_block(model_segmentation, 1, False, training)
+model_segmentation = deconv_block(model, 256, training)
+model_segmentation = conv_block(model_segmentation, 256, False, training)
+model_segmentation = conv_block(model_segmentation, 256, False, training)
+model_segmentation = deconv_block(model_segmentation, 128, training)
+model_segmentation = conv_block(model_segmentation, 128, False, training)
+model_segmentation = conv_block(model_segmentation, 128, False, training)
+model_segmentation = deconv_block(model_segmentation, 64, training)
+model_segmentation = conv_block(model_segmentation, 64, False, training)
+model_segmentation = conv_block(model_segmentation, 64, False, training)
+model_segmentation = deconv_block(model_segmentation, 32, training)
+model_segmentation = conv_block(model_segmentation, 32, False, training)
+model_segmentation = conv_block(model_segmentation, 32, False, training)
+out_segmentation = conv_block(model_segmentation, 1, False, training)
 
 loss_center = tf.sqrt(tf.reduce_mean(tf.square(label_center - tf.squeeze(out_center))))
-# loss_segmentation = tf.sqrt(tf.reduce_mean(tf.square(label_segmentation - tf.squeeze(out_segmentation))))
+loss_segmentation = tf.sqrt(tf.reduce_mean(tf.square(label_segmentation - tf.squeeze(out_segmentation))))
 
 optimizer_center = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_center)
-# optimizer_segmentation = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_segmentation)
+optimizer_segmentation = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_segmentation)
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -104,25 +104,25 @@ with tf.Session() as sess:
         batch_x, batch_center, batch_segmentation = dm.next_batch(dm.data_x, dm.data_center, dm.data_segmentation, 1)
 
         extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        _ = sess.run([optimizer_center, extra_update_ops],
+        _ = sess.run([optimizer_center, optimizer_segmentation, extra_update_ops],
                      feed_dict={input: batch_x, label_center: batch_center, label_segmentation: batch_segmentation,
                                 training: True})
 
         print("loss center: {}".format(sess.run(loss_center,
                                                 feed_dict={input: batch_x, label_center: batch_center,
                                                            training: False})))
-        # print("loss segmentation: {}".format(sess.run(loss_segmentation,
-        #                                               feed_dict={input: batch_x, label_segmentation: batch_segmentation,
-        #                                                          training: False})))
+        print("loss segmentation: {}".format(sess.run(loss_segmentation,
+                                                      feed_dict={input: batch_x, label_segmentation: batch_segmentation,
+                                                                 training: False})))
 
         if (i % 200) == 0:
-            plt.subplot(1, 2, 1)
+            plt.subplot(1, 3, 1)
             plt.imshow(np.squeeze(sess.run(out_center, feed_dict={input: batch_x, training: False})))
 
-            # plt.subplot(1, 3, 2)
-            # plt.imshow(np.squeeze(sess.run(out_segmentation, feed_dict={input: batch_x, training: False})))
+            plt.subplot(1, 3, 2)
+            plt.imshow(np.squeeze(sess.run(out_segmentation, feed_dict={input: batch_x, training: False})))
 
-            plt.subplot(1, 2, 2)
+            plt.subplot(1, 3, 3)
             plt.imshow(np.squeeze(batch_x))
 
             plt.show()

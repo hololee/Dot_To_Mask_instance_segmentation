@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import os
-import DataManager
+import DataManagerCenterTrain
 import matplotlib.pyplot as plt
 import tools.DataHandler as DataHandler
 

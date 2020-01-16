@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import cv2
+from skimage import color
 
 from scipy.misc import imread, imsave
 
@@ -71,12 +72,12 @@ def get_centers(image_path):
             cX, cY = 0, 0
 
         coordinates.append([cX, cY])
-        canvas = np.zeros(shape=np.shape(img))
+        canvas = np.zeros(shape=[np.shape(img)[0], np.shape(img)[1]])
 
-        cv2.circle(canvas, (cX, cY), 5, (255, 255, 255), -1)
-        cv2.imwrite(image_path.replace(".png", "") + "_center{}.png".format(index), canvas)
+        cv2.circle(canvas, (cX, cY), 5, 255, -1)
+        # cv2.imwrite(image_path.replace(".png", "") + "_center{}.png".format(index), canvas)
 
-        centers.append(canvas)
+        centers.append(canvas / 255)
 
     return centers, coordinates
 
@@ -90,9 +91,11 @@ def get_areas_from_center(image_path, centers):
         canvas = np.zeros(shape=np.shape(color_label))
         canvas[np.where(np.all(color_label == selected_color, axis=-1))] = 255
 
-        imsave(image_path.replace(".png", "") + "_center{}.png".format(index), canvas)
+        # imsave(image_path.replace(".png", "") + "_center{}.png".format(index), canvas)
 
-        color_centers.append(canvas)
+        canvas = color.rgb2gray(canvas)
+
+        color_centers.append(canvas / 255)
 
     return color_centers
 

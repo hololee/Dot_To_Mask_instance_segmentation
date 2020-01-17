@@ -104,25 +104,37 @@ out_focal_before_softmax = final_block(model_focal, 1)
 out_focal_before_softmax = tf.reshape(out_focal_before_softmax, [-1])
 out_focal = tf.nn.sigmoid(out_focal_before_softmax)
 
+######## summation branch #########
+s_model_32 = conv_block(individual_points, 32, False, training)
+s_model_32_2 = conv_block(s_model_32, 32, True, training)
+s_model_64 = conv_block(s_model_32_2, 64, False, training)
+s_model_64_2 = conv_block(s_model_64, 64, True, training)
+s_model_128 = conv_block(s_model_64_2, 128, False, training)
+s_model_128_2 = conv_block(s_model_128, 128, True, training)
+s_model_256 = conv_block(s_model_128_2, 256, False, training)
+s_model_256_2 = conv_block(s_model_256, 256, True, training)
+s_model_512 = conv_block(s_model_256_2, 512, False, training)
+s_model_512_2 = conv_block(s_model_512, 512, False, training)
+
 ########## match branch ###########
-model_segmentation = deconv_block(model_512_2, 256, training)
-model_segmentation = tf.concat([model_segmentation, tf.image.resize_images(individual_points, (
-    model_segmentation.get_shape().as_list()[1], model_segmentation.get_shape().as_list()[2]))], axis=-1)
+model_segmentation = deconv_block(s_model_512_2 + model_512_2, 256, training)
+# model_segmentation = tf.concat([model_segmentation, tf.image.resize_images(individual_points, (
+#     model_segmentation.get_shape().as_list()[1], model_segmentation.get_shape().as_list()[2]))], axis=-1)
 model_segmentation = conv_block(model_segmentation, 256, False, training)
 model_segmentation = conv_block(model_segmentation, 256, False, training)
 model_segmentation = deconv_block(model_segmentation, 128, training)
-model_segmentation = tf.concat([model_segmentation, tf.image.resize_images(individual_points, (
-    model_segmentation.get_shape().as_list()[1], model_segmentation.get_shape().as_list()[2]))], axis=-1)
+# model_segmentation = tf.concat([model_segmentation, tf.image.resize_images(individual_points, (
+#     model_segmentation.get_shape().as_list()[1], model_segmentation.get_shape().as_list()[2]))], axis=-1)
 model_segmentation = conv_block(model_segmentation, 128, False, training)
 model_segmentation = conv_block(model_segmentation, 128, False, training)
 model_segmentation = deconv_block(model_segmentation, 64, training)
-model_segmentation = tf.concat([model_segmentation, tf.image.resize_images(individual_points, (
-    model_segmentation.get_shape().as_list()[1], model_segmentation.get_shape().as_list()[2]))], axis=-1)
+# model_segmentation = tf.concat([model_segmentation, tf.image.resize_images(individual_points, (
+#     model_segmentation.get_shape().as_list()[1], model_segmentation.get_shape().as_list()[2]))], axis=-1)
 model_segmentation = conv_block(model_segmentation, 64, False, training)
 model_segmentation = conv_block(model_segmentation, 64, False, training)
 model_segmentation = deconv_block(model_segmentation, 32, training)
-model_segmentation = tf.concat([model_segmentation, tf.image.resize_images(individual_points, (
-    model_segmentation.get_shape().as_list()[1], model_segmentation.get_shape().as_list()[2]))], axis=-1)
+# model_segmentation = tf.concat([model_segmentation, tf.image.resize_images(individual_points, (
+#     model_segmentation.get_shape().as_list()[1], model_segmentation.get_shape().as_list()[2]))], axis=-1)
 model_segmentation = conv_block(model_segmentation, 32, False, training)
 out_match = conv_block(model_segmentation, 1, False, training)
 out_match = tf.nn.sigmoid(out_match)
@@ -136,8 +148,8 @@ alpha = 1.
 # beta = 1.
 gamma = 1.
 
-optimizer_step1 = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss_focal)
-optimizer_step2 = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss_match)
+optimizer_step1 = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_focal)
+optimizer_step2 = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss_match)
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -147,7 +159,7 @@ with tf.Session() as sess:
 
     iterations = total_data // batch_size
 
-    total_epoch = 3000
+    total_epoch = 300
 
     for epoch in range(total_epoch):
 
@@ -191,27 +203,28 @@ with tf.Session() as sess:
                                     label_match: one_segmentation_image,
                                     training: True})
 
-                print("iteration{}:{}   __ loss_match: {}  __ loss_focal: {}".format(iteration,
-                                                                                     sub_iteration,
+                if sub_iteration == 0:
+                    print("iteration{}:{}   __ loss_match: {}  __ loss_focal: {}".format(iteration,
+                                                                                         sub_iteration,
 
-                                                                                     sess.run(
-                                                                                         loss_match,
-                                                                                         feed_dict={
-                                                                                             input: origin_image,
-                                                                                             label_center: center_image,
-                                                                                             label_segmentation: segmentation_image,
-                                                                                             individual_points: one_center_image,
-                                                                                             label_match: one_segmentation_image,
-                                                                                             training: False}),
-                                                                                     sess.run(
-                                                                                         loss_focal,
-                                                                                         feed_dict={
-                                                                                             input: origin_image,
-                                                                                             label_center: center_image,
-                                                                                             label_segmentation: segmentation_image,
-                                                                                             individual_points: one_center_image,
-                                                                                             label_match: one_segmentation_image,
-                                                                                             training: False})))
+                                                                                         sess.run(
+                                                                                             loss_match,
+                                                                                             feed_dict={
+                                                                                                 input: origin_image,
+                                                                                                 label_center: center_image,
+                                                                                                 label_segmentation: segmentation_image,
+                                                                                                 individual_points: one_center_image,
+                                                                                                 label_match: one_segmentation_image,
+                                                                                                 training: False}),
+                                                                                         sess.run(
+                                                                                             loss_focal,
+                                                                                             feed_dict={
+                                                                                                 input: origin_image,
+                                                                                                 label_center: center_image,
+                                                                                                 label_segmentation: segmentation_image,
+                                                                                                 individual_points: one_center_image,
+                                                                                                 label_match: one_segmentation_image,
+                                                                                                 training: False})))
 
                 # if (iteration % 5) == 0:
                 #     fig = plt.figure()
@@ -254,5 +267,93 @@ with tf.Session() as sess:
                 #
                 #     plt.show()
 
+        # NOTICE : plot ## 17 epoch.
+        for i in range(8):
+            origin_image, center_image, segmentation_image, one_center, one_segmentation = dm.get_test_data()
+            origin_image = origin_image[0]
+            origin_image = np.expand_dims(origin_image, axis=0)
+
+            center_image = center_image[0]
+            center_image = np.expand_dims(center_image, axis=0)
+
+            segmentation_image = segmentation_image[0]
+            one_center = one_center[0]
+            one_segmentation = one_segmentation[0]
+
+            center_image = np.expand_dims(center_image, axis=-1)
+            segmentation_image = np.expand_dims(segmentation_image, axis=0)
+            segmentation_image = np.expand_dims(segmentation_image, axis=-1)
+            one_center = np.squeeze(one_center)
+            one_segmentation = np.squeeze(one_segmentation)
+
+            one_center_image = one_center[i]
+            one_center_image = np.expand_dims(one_center_image, axis=0)
+            one_center_image = np.expand_dims(one_center_image, axis=-1)
+            one_segmentation_image = one_segmentation[i]
+            one_segmentation_image = np.expand_dims(one_segmentation_image, axis=0)
+            one_segmentation_image = np.expand_dims(one_segmentation_image, axis=-1)
+
+            a = sess.run(
+                out_match,
+                feed_dict={
+                    input: origin_image,
+                    label_center: center_image,
+                    label_segmentation: segmentation_image,
+                    individual_points: one_center_image,
+                    label_match: one_segmentation_image,
+                    training: False})
+
+            a = np.reshape(a, [512, 512])
+
+            plt.imshow(a)
+            plt.show()
+
+            plt.imshow(np.squeeze(one_segmentation_image))
+            plt.show()
+
         if epoch == np.max(range(total_epoch)):
             print("stop")
+#
+# for i in range(8):
+#     origin_image, center_image, segmentation_image, one_center, one_segmentation = dm.get_test_data()
+#     origin_image = origin_image[0]
+#     origin_image = np.expand_dims(origin_image, axis=0)
+#
+#     center_image = center_image[0]
+#     center_image = np.expand_dims(center_image, axis=0)
+#
+#     segmentation_image = segmentation_image[0]
+#     one_center = one_center[0]
+#     one_segmentation = one_segmentation[0]
+#
+#     center_image = np.expand_dims(center_image, axis=-1)
+#     segmentation_image = np.expand_dims(segmentation_image, axis=0)
+#     segmentation_image = np.expand_dims(segmentation_image, axis=-1)
+#     one_center = np.squeeze(one_center)
+#     one_segmentation = np.squeeze(one_segmentation)
+#
+#     one_center_image = one_center[i]
+#     one_center_image = np.expand_dims(one_center_image, axis=0)
+#     one_center_image = np.expand_dims(one_center_image, axis=-1)
+#     one_segmentation_image = one_segmentation[i]
+#     one_segmentation_image = np.expand_dims(one_segmentation_image, axis=0)
+#     one_segmentation_image = np.expand_dims(one_segmentation_image, axis=-1)
+#
+#     a = sess.run(
+#         out_match,
+#         feed_dict={
+#             input: origin_image,
+#             label_center: center_image,
+#             label_segmentation: segmentation_image,
+#             individual_points: one_center_image,
+#             label_match: one_segmentation_image,
+#             training: False})
+#
+#     a = np.reshape(a, [512, 512])
+#
+#     plt.imshow(a)
+#     plt.show()
+#
+#     plt.imshow(np.squeeze(one_segmentation_image))
+#     plt.show()
+#

@@ -16,6 +16,7 @@ class DataManager:
         self.data_one_center_list = []
         self.data_one_center_label = []
         self.data_segmentation = []
+        self.data_color_label = []
 
         # notice : load data.
         path = "/data1/LJH/Dot_To_Mask_instance_segmentation/A1/"
@@ -39,7 +40,7 @@ class DataManager:
                     y = coordinates[1][i]
 
                     # add circle.
-                    draw_circle.ellipse((y - 5, x - 5, y + 5, x + 5), fill='white')
+                    draw_circle.ellipse((y - 6, x - 6, y + 6, x + 6), fill='white')
                 self.data_center.append(np.array(pil_image_centers) / 255)
                 # imsave(file_path.replace("_centers.png", "") + "_hd.png", np.array(pil_image_centers))
                 imgs, indices = get_centers(file_path.replace("_centers.png", "") + "_hd.png")
@@ -58,6 +59,9 @@ class DataManager:
             if "_rgb" in file:
                 print(file)
                 self.data_x.append(imread(file_path, mode='RGB'))
+
+            if file.endswith("_label.png"):
+                self.data_color_label.append(imread(file_path, mode='RGB'))
 
         # divide data set.
 
@@ -80,13 +84,15 @@ class DataManager:
         self.test_data_one_center_label = self.data_one_center_label[train_dataset_size:]
         self.test_data_segmentation = self.data_segmentation[train_dataset_size:]
 
-    # def next_batch(self, total_images, total_labels1, total_labels2, batch_size):
-    #
-    #     sub_batch_x, sub_batch_y1, sub_batch_y2 = total_images[self.batch_flag: self.batch_flag + batch_size], \
-    #                                               total_labels1[self.batch_flag:self.batch_flag + batch_size], \
-    #                                               total_labels2[self.batch_flag:self.batch_flag + batch_size]
-    #     self.batch_flag = (self.batch_flag + batch_size) % len(total_images)
-    #     return sub_batch_x, sub_batch_y1, sub_batch_y2
+        self.test_data_color_label = self.data_color_label[train_dataset_size:]
+
+    def next_batch(self, total_images, total_labels1, total_labels2, batch_size):
+
+        sub_batch_x, sub_batch_y1, sub_batch_y2 = total_images[self.batch_flag: self.batch_flag + batch_size], \
+                                                  total_labels1[self.batch_flag:self.batch_flag + batch_size], \
+                                                  total_labels2[self.batch_flag:self.batch_flag + batch_size]
+        self.batch_flag = (self.batch_flag + batch_size) % len(total_images)
+        return sub_batch_x, sub_batch_y1, sub_batch_y2
 
     def next_batch_with_each_center(self, batch_size):
 
@@ -105,7 +111,7 @@ class DataManager:
         return origin_image, center_image, segmentation_image, one_center, one_segmentation
 
     def get_test_data(self):
-        return self.test_data_x, self.test_data_center, self.test_data_segmentation, self.test_data_one_center_img, self.test_data_one_center_label
+        return self.test_data_x, self.test_data_center, self.test_data_segmentation, self.test_data_one_center_img, self.test_data_one_center_label, self.test_data_color_label
 
 # db = DataManager()
 # print("")

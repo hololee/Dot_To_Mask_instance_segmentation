@@ -159,7 +159,7 @@ with tf.Session() as sess:
 
     iterations = total_data // batch_size
 
-    total_epoch = 300
+    total_epoch = 200
 
     for epoch in range(total_epoch):
 
@@ -267,8 +267,9 @@ with tf.Session() as sess:
                 #
                 #     plt.show()
 
-        # NOTICE : plot ## 17 epoch.
-        for i in range(8):
+        # NOTICE : plot ## 17 epoch.  ## 32 epoch````````````````````````````````````````````.
+
+        for i in range(5):
             origin_image, center_image, segmentation_image, one_center, one_segmentation = dm.get_test_data()
             origin_image = origin_image[0]
             origin_image = np.expand_dims(origin_image, axis=0)
@@ -310,6 +311,12 @@ with tf.Session() as sess:
 
             plt.imshow(np.squeeze(one_segmentation_image))
             plt.show()
+
+        if epoch + 1 == 10 or epoch + 1 == 30 or epoch + 1 == 80 or epoch + 1 == 140 or epoch + 1 == 200:
+            saver = tf.train.Saver()
+            save_path = saver.save(sess,
+                                   "/data1/LJH/Dot_To_Mask_instance_segmentation/saved_models/test_01/model_epoch_{}".format(
+                                       epoch + 1))
 
         if epoch == np.max(range(total_epoch)):
             print("stop")

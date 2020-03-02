@@ -5,7 +5,7 @@ import DataManagerCenterTrain
 import matplotlib.pyplot as plt
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 # load data.
 
@@ -68,51 +68,47 @@ def get_focal_loss(out_of_model, label):
     return loss_sum
 
 
-##################################
+def hourglassModule(input, finish=False):
+    ##################################
+    # input = 256,256, 32
+    model_b = conv_block(input, 64, False, training)  # 256
+    model_bb = conv_block(model_b, 64, True, training)  # 128
+    model_c = conv_block(model_bb, 128, False, training)  # 128
+    model_cc = conv_block(model_c, 128, True, training)  # 64
+    model_d = conv_block(model_cc, 256, False, training)  # 64
+    model_dd = conv_block(model_d, 256, True, training)  # 32
+    model = conv_block(model_dd, 512, False, training)  # 32
+    # model = conv_block(model, 512, False, training)  # 32
 
-model = conv_block(input, 32, False, training)
-model = conv_block(model, 32, True, training)
-model = conv_block(model, 64, False, training)
-model = conv_block(model, 64, True, training)
-model = conv_block(model, 128, False, training)
-model = conv_block(model, 128, True, training)
-model = conv_block(model, 256, False, training)
-model = conv_block(model, 256, True, training)
-model = conv_block(model, 512, False, training)
-model = conv_block(model, 512, False, training)
+    ########## focal branch ###########
+    model_focal = deconv_block(model, 256, training) + conv_block(model_d, 256, False, training)  # 64,64,256
+    model_focal = conv_block(model_focal, 256, False, training)
+    # model_focal = conv_block(model_focal, 256, False, training)
+    model_focal = deconv_block(model_d, 128, training) + conv_block(model_c, 128, False, training)
+    model_focal = conv_block(model_focal, 128, False, training)
+    # model_focal = conv_block(model_focal, 128, False, training)
+    model_focal = deconv_block(model_focal, 64, training) + conv_block(model_b, 64, False, training)
+    model_focal = conv_block(model_focal, 32, False, training)
+    # model_focal = conv_block(model_focal, 64, False, training)
+    # model_focal = deconv_block(model_focal, 32, training)
 
-##########center seg branch ###########
-# model_center = deconv_block(model, 256, training)
-# model_center = conv_block(model_center, 256, False, training)
-# model_center = conv_block(model_center, 256, False, training)
-# model_center = deconv_block(model_center, 128, training)
-# model_center = conv_block(model_center, 128, False, training)
-# model_center = conv_block(model_center, 128, False, training)
-# model_center = deconv_block(model_center, 64, training)
-# model_center = conv_block(model_center, 64, False, training)
-# model_center = conv_block(model_center, 64, False, training)
-# model_center = deconv_block(model_center, 32, training)
-# model_center = conv_block(model_center, 32, False, training)
-# model_center = conv_block(model_center, 32, False, training)
-# out_center = final_block(model_center, 1)
-# out_center = tf.nn.sigmoid(out_center)
+    if finish:
+        model_focal = deconv_block(model_focal, 32, training)
+        model_focal = conv_block(model_focal, 32, False, training)
+        # model_focal = conv_block(model_focal, 32, False, training)
+        model_focal = final_block(model_focal, 1)
+        model_focal = tf.reshape(model_focal, [-1])
+        model_focal = tf.nn.sigmoid(model_focal)
 
-########## focal branch ###########
-model_focal = deconv_block(model, 256, training)
-model_focal = conv_block(model_focal, 256, False, training)
-model_focal = conv_block(model_focal, 256, False, training)
-model_focal = deconv_block(model_focal, 128, training)
-model_focal = conv_block(model_focal, 128, False, training)
-model_focal = conv_block(model_focal, 128, False, training)
-model_focal = deconv_block(model_focal, 64, training)
-model_focal = conv_block(model_focal, 64, False, training)
-model_focal = conv_block(model_focal, 64, False, training)
-model_focal = deconv_block(model_focal, 32, training)
-model_focal = conv_block(model_focal, 32, False, training)
-model_focal = conv_block(model_focal, 32, False, training)
-out_focal_before_softmax = final_block(model_focal, 1)
-out_focal_before_softmax = tf.reshape(out_focal_before_softmax, [-1])
-out_focal = tf.nn.sigmoid(out_focal_before_softmax)
+    return model_focal
+
+
+model_a = conv_block(input, 32, False, training)  # 512, 512 , 32
+model_aa = conv_block(model_a, 32, True, training)  # 256
+
+out_focal = hourglassModule(model_aa)
+out_focal = hourglassModule(out_focal)
+out_focal = hourglassModule(out_focal, True)
 
 # loss_center = tf.sqrt(tf.reduce_mean(tf.square(label_center - out_center)))
 loss_focal = get_focal_loss(out_focal, tf.reshape(label_center, [-1]))
@@ -128,7 +124,7 @@ with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
     for i in range(18000):
-        batch_x, batch_center, _ = dm.next_batch(dm.data_x, dm.data_center, dm.data_segmentation, 1)
+        batch_x, batch_center, _ = dm.next_batch(dm.train_data_x, dm.train_data_center, dm.train_data_segmentation, 1)
         batch_center = np.expand_dims(batch_center, axis=-1)
         extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         sess.run([optimizer_t, extra_update_ops],
@@ -151,12 +147,12 @@ with tf.Session() as sess:
             ax2 = fig.add_subplot(2, 1, 1)
             ax2.title.set_text("focal")
             ax2.imshow(np.squeeze(
-                sess.run(tf.reshape(out_focal, shape=[512, 512]), feed_dict={input: batch_x, training: False})))
+                sess.run(tf.reshape(out_focal, shape=[512, 512]),
+                         feed_dict={input: np.expand_dims(dm.test_data_x[0], axis=0), training: False})))
 
             ax3 = fig.add_subplot(2, 1, 2)
             ax3.title.set_text("label")
-            ax3.imshow(np.squeeze(batch_center))
-
+            ax3.imshow(np.squeeze(np.expand_dims(dm.test_data_center[0], axis=0)))
             # ax2 = fig.add_subplot(2, 2, 4)
             # ax2.title.set_text("sum")
             # ax2.imshow(np.squeeze(sess.run(out_center, feed_dict={input: batch_x, training: False})) + np.squeeze(

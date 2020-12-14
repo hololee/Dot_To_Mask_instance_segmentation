@@ -146,6 +146,7 @@ with tf.Session() as sess:
     saver.restore(sess, "/data1/LJH/Dot_To_Mask_instance_segmentation/saved_models/test_01/model_epoch_130")
 
     IOU_LIST = []
+    SBD_LIST = []
 
     # NOTICE : for images.
     for origin_index in range(len(dm.get_test_data())):
@@ -283,8 +284,12 @@ with tf.Session() as sess:
             print("one instance dice(%) ; {}%".format(dice))
 
         total_iou = np.mean(iou_list_of_centers)
+        Symmetric_best_dice = np.mean(dice_list_of_ceenters)
+
         print("total_iou : {}".format(total_iou))
+        print("Symmetric_best_dice : {}".format(Symmetric_best_dice))
         IOU_LIST.append(total_iou)
+        SBD_LIST.append(Symmetric_best_dice)
         plt.imshow(total_image, cmap="gray")
         plt.show()
 
@@ -295,4 +300,6 @@ with tf.Session() as sess:
         print(len(result_image_list))
 
     model_iou = np.mean(IOU_LIST)
+    model_SBD = np.mean(SBD_LIST)
     print("###### total model IOU : {} #######".format(model_iou))
+    print("###### total model SBD : {} #######".format(model_SBD))

@@ -12,15 +12,15 @@ In this paper, we propose a network model composed of Multi path Encoder-Decoder
 2. Purple path embed each instance center information and added with yellow path embedded feature.
 3. Blue path predict each instance.  
 
-![whole_structure]()
+![whole_structure](https://github.com/hololee/Dot_To_Mask_instance_segmentation/blob/master/whole_structure.png?raw=true)
 
 ### Merge outputs  
 Each instance information is merged together, and remove noise.
   
-![merge]()
+![merge](https://github.com/hololee/Dot_To_Mask_instance_segmentation/blob/master/sum.png?raw=true)
 
 ### Result
-![output]()
+![output](https://github.com/hololee/Dot_To_Mask_instance_segmentation/blob/master/output_show.png?raw=true)
 
 
 
